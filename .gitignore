@@ -1,0 +1,4 @@
+logs/
+signjob.bat
+scripts/common.py
+scripts/*.pyc
