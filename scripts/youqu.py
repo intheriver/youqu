@@ -2,7 +2,7 @@
 import urllib
 import urllib2
 import json
-import hashlib   
+import hashlib
 import log4j
 import os
 
@@ -11,7 +11,7 @@ class Youqu(object):
     def __init__(self,userName,userPass):
         self.__userName__ = userName
         self.__userPass__ = userPass
-        self.__yqVer__ = "V2.1.4"
+        self.__yqVer__ = "V2.2.6"
         self.__yqPlatform__ = "andriod"
         self.__userAgent__ = "okhttp/3.3.1"
         self.__loginUrl__ = "http://common.iyouqu.com.cn:8080/app/user/service.do"
@@ -164,28 +164,33 @@ class Youqu(object):
             log4j.info("success")
         else:
             log4j.error("faild to vote article:<" + str(articleInfo["title"]) + ">,reason:" + response["message"])
-    def articlePreview(self,keyWord):
-        articleInfo = self.getArticleInfo(keyWord)
+    def articlePreviewByKw(self,keyWord):
+        article_info = self.getArticleInfo(keyWord)
         if None == articleInfo:
             return
-        if 4 == articleInfo["objectType"]:
+        self.articlePreview(article_info)
+        
+
+    def articlePreview(self, article_info):
+        ret = -1
+        if 4 == article_info["objectType"]:
             textData = {
-                "articleId":articleInfo["id"],
+                "articleId":article_info["id"],
                 "isShow":"true",
                 "msgId":"ARTICLE_DETAIL",
                 "userId":self.__loginResponse__["resultMap"]["userInfo"]["id"]
             }
             requestUrl = "http://iyouqu.com.cn:8080/app/magazine/service.do"
-        elif 1 == articleInfo["objectType"] or 3 == articleInfo["objectType"]:
+        elif 1 == article_info["objectType"] or 3 == article_info["objectType"]:
             textData = {
                 "msgId":"APP009",
-                "objectId":articleInfo["id"],
+                "objectId":article_info["id"],
                 "opinion":0,
                 "userId":self.__loginResponse__["resultMap"]["userInfo"]["id"]
             }
             requestUrl = "http://iyouqu.com.cn:8080/app/newsActivity/service.do"
         else:
-            log4j.error("error:unkown objectType:" + str(articleInfo["objectType"]))
+            log4j.error("error:unkown objectType:" + str(article_info["objectType"]))
             return
         reqData = {"text":json.dumps(textData)}
         try:
@@ -193,13 +198,15 @@ class Youqu(object):
             res_data = urllib2.urlopen(req)
             response = json.loads(res_data.read())
             if '0' != response["code"]:
-                log4j.error("faild to preview <" + str(articleInfo["title"]) + ">,reason:" + response["message"])
+                log4j.error("faild to preview <" + str(article_info["title"]) + ">,reason:" + response["message"])
             else:
                 log4j.info("success")
+                ret = 0
         except Exception as ex:
             print ex
-    def getAriticlList_t(self,title = None , source = None ):
-        kw = u"光配线"
+        return ret
+
+    def getAriticlList_t(self, kw = " ", title = None , source = None):
         article_list = []
         index = 0
         while 1:
@@ -230,14 +237,16 @@ class Youqu(object):
                         print ex
                     if ((title is None) or (title in articleInfo["title"])) \
                         and ((source is None) or (articleInfo.has_key("source") and source in articleInfo["source"])):
-                        print "yes+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-                        article_list.append(articleInfo) 
+                        #print "yes+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+                        article_list.append(articleInfo)
                     else:
-                        print "no"
+                        pass
+                        #print "no"
             else:
                 print response["message"]
                 break
         return article_list
+
     def getArticleInfo(self,keyWord):
         if self.__articleMap__.has_key(keyWord):
             return self.__articleMap__[keyWord]
@@ -268,3 +277,45 @@ class Youqu(object):
         else:
             log4j.error(response["message"])
             return None
+    
+    def __getLatestArticles(self, index):
+        textData = {
+            "department":"02A20000",
+            "index":str(index),
+            "msgId":"APP150",
+            "categoryId":"-1",
+            "categoryType":"0",
+            "userId":self.__loginResponse__["resultMap"]["userInfo"]["id"]
+        }
+        reqData = {"text":json.dumps(textData)}
+        req = urllib2.Request(url = "http://iyouqu.com.cn:8080/app/newsActivity/service.do",data = urllib.urlencode(reqData),headers = self.__headers__)
+        res_data = urllib2.urlopen(req)
+        response = json.loads(res_data.read())
+        if '0' == response["code"]:
+            articles = response["resultMap"]["objectList"]
+            # for article in articles:
+            #     print(article)
+            #     print("-" * 80)
+            return articles
+        else:
+            log4j.error(response["message"])
+            return None
+
+
+    def getLatestArticles(self, count = 10):
+        articles = []
+
+        while 1:
+            if 0 == len(articles):
+                index = 0
+            else:
+                index = len(articles) + 1
+            objs = self.__getLatestArticles(index)
+            if objs is None:
+                return []
+            if 0 == len(objs):
+                break
+            articles += objs
+            if len(articles) >= count:
+                break
+        return articles[0:count]

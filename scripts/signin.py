@@ -35,12 +35,21 @@ def main():
     user = Youqu(userName,userPass)
     status_list = []
 
+    article_preview_details = ""
+
     if 0 == user.login():
         for group in groupName.split(","):
             status = "fail"
             if 0 == user.signIn(groupName = group , position = location):
                 status = "success"
             status_list.append({"group":group,"status":status})
+
+        articles = user.getLatestArticles(19)
+        for article in articles:
+            if 0 == user.articlePreview(article):
+                article_preview_details += ("%-15s : %s\n" % (article["title"], "+1"))
+            else:
+                article_preview_details += ("%-15s : %s\n" % (article["title"], "+0"))
 
     stop_time = time.strftime('%y-%m-%d %H:%M:%S',time.localtime(time.time()))
     msg_content = ""
@@ -49,6 +58,10 @@ def main():
         msg_content += ("%-07s: %s ===> %s\n"%("group" , item["group"] , item["status"]))
     msg_content += ("%-07s: %s\n"%("start" , start_time))
     msg_content += ("%-07s: %s\n"%("stop" , stop_time))
+
+    msg_content += ( "\n" + ("*" * 80) + "\n")
+    msg_content += article_preview_details
+    
     sendmail(to_addr = to_addr , content = msg_content)
 
 if __name__ == '__main__':
